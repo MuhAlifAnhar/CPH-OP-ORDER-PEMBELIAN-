@@ -76,8 +76,6 @@
               <th>No Invoice</th>
               <th>Progress</th>
               <th>Link Form</th>
-              <th>Link Update</th>
-              <th>Link Batal</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -110,20 +108,19 @@
 
     <script>
       /*
-  Column mapping (zero-based):
+  This version reads CSV as arrays (header:false) so we can read by column index.
+  Column index mapping (zero-based):
     A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7, I=8, J=9,
     K=10, L=11, M=12, N=13, O=14, P=15, Q=16, R=17, S=18, T=19,
     U=20, V=21, W=22, X=23, Y=24, Z=25, AA=26, AB=27, AC=28, AD=29,
-    AE=30, AF=31, AG=32, AH=33, AI=34, AJ=35, AK=36, AL=37,
-    AM=38 (Alasan Update), AN=39 (Alasan Batal),
-    AO=40 (Progress), AP=41 (Link Form), AQ=42 (Link Update), AR=43 (Link Batal)
+    AE=30, AF=31, AG=32, AH=33, AI=34, AJ=35, AK=36, AL=37, AM=38, AN=39
 */
 
       const csvUrl =
         "https://docs.google.com/spreadsheets/d/e/2PACX-1vTgFVU5uh5mKvnk1z7_tvmjWV1rV4QURPNQWySOvFt5HL-Hdo2D-2kA8uN3NzxAe7WQBB2oRPwr7n-z/pub?gid=12863231&single=true&output=csv";
 
-      let headerRow = [];
-      let dataRows = [];
+      let headerRow = []; // header titles (row 0)
+      let dataRows = []; // array of arrays for each data row (row1..)
 
       function safe(v) {
         return v === undefined || v === null || String(v).trim() === ""
@@ -142,7 +139,7 @@
         return d.toISOString();
       }
 
-      // form templates used earlier (kept for Link Form)
+      // form templates (same as earlier)
       const FORM_TEMPLATES = {
         COMPLETE_PINJAM: {
           base: "https://docs.google.com/forms/d/e/1FAIpQLSdVsv0JTkIqsfVkhlkw23RY1WjUqnp19s9drnybDODO0ZbQIg/viewform?usp=pp_url",
@@ -162,12 +159,13 @@
         },
       };
 
+      // helpers to access columns by zero-based index directly from row array
       function col(row, idx) {
         if (!row) return "";
         return idx < 0 || idx >= row.length ? "" : row[idx];
       }
 
-      // Build Link Form from label (same as before)
+      // build form URL from AN label using row array (indexes used: D=3, I=8, X=23)
       function buildFormUrlFromLabel(label, row) {
         if (!label) return "";
         const L = String(label).toUpperCase().trim();
@@ -202,94 +200,8 @@
         return "";
       }
 
-      // ----------------------------
-      // Build Update URL (AQ) from row (mimic your ARRAYFORMULA building)
-      // ----------------------------
-      function buildUpdateUrlFromRow(row) {
-        const typeRaw = String(col(row, 6) || "").trim(); // G
-        const type = typeRaw.replace(/\u00A0/g, "").toLowerCase();
-        const transid = encodeURIComponent(String(col(row, 3) || "").trim()); // D
-
-        // Form base (your formula used same form id for both pinjam/pakai)
-        const base =
-          "https://docs.google.com/forms/d/e/1FAIpQLSc_tZolSs9jjLNppQ6RwUQmBVFl-xt3el7JM3V7DXcqIYseKw/viewform?usp=pp_url";
-
-        if (type === "pinjam") {
-          // Mapping K..V => cols 10..21
-          const map = {
-            "entry.1857583927": col(row, 10), // K
-            "entry.51449392": col(row, 11), // L
-            "entry.725536808": col(row, 12), // M
-            "entry.1585152426": col(row, 13), // N
-            "entry.1247191112": col(row, 14), // O
-            "entry.521804809": col(row, 15), // P
-            "entry.1103266424": col(row, 16), // Q
-            "entry.1262921988": col(row, 17), // R
-            "entry.1605010623": col(row, 18), // S
-            "entry.1461492477": col(row, 19), // T
-            "entry.1598462406": col(row, 20), // U
-            "entry.2061006561": col(row, 21), // V
-          };
-          let url = base + "&entry.331942194=" + transid;
-          for (const key in map) {
-            const v = (map[key] || "").trim();
-            if (v !== "") url += `&${key}=${encodeURIComponent(v)}`;
-            else url += `&${key}=`;
-          }
-          return { href: url, label: "UPDATE PINJAM" };
-        }
-
-        if (type === "pakai") {
-          // Mapping Z..AK => cols 25..36
-          const map = {
-            "entry.1857583927": col(row, 25), // Z
-            "entry.51449392": col(row, 26), // AA
-            "entry.725536808": col(row, 27), // AB
-            "entry.1585152426": col(row, 28), // AC
-            "entry.1247191112": col(row, 29), // AD
-            "entry.521804809": col(row, 30), // AE
-            "entry.1103266424": col(row, 31), // AF
-            "entry.1262921988": col(row, 32), // AG
-            "entry.1605010623": col(row, 33), // AH
-            "entry.1461492477": col(row, 34), // AI
-            "entry.1598462406": col(row, 35), // AJ
-            "entry.2061006561": col(row, 36), // AK
-          };
-          let url = base + "&entry.331942194=" + transid;
-          for (const key in map) {
-            const v = (map[key] || "").trim();
-            if (v !== "") url += `&${key}=${encodeURIComponent(v)}`;
-            else url += `&${key}=`;
-          }
-          return { href: url, label: "UPDATE PAKAI" };
-        }
-
-        return { href: "", label: "" };
-      }
-
-      // ----------------------------
-      // Build Batal URL (AR) from row
-      // ----------------------------
-      function buildBatalUrlFromRow(row) {
-        const typeRaw = String(col(row, 6) || "").trim(); // G
-        const type = typeRaw.replace(/\u00A0/g, "").toLowerCase();
-        const transid = encodeURIComponent(String(col(row, 3) || "").trim()); // D
-
-        const base =
-          "https://docs.google.com/forms/d/e/1FAIpQLScgU2-saF_fxbM1NeH-z_lniidrP3G250BNIR3Kg5kupVzT8Q/viewform?usp=pp_url";
-
-        if (type === "pinjam") {
-          const url = base + "&entry.1515460522=" + transid;
-          return { href: url, label: "BATAL PINJAM" };
-        }
-        if (type === "pakai") {
-          const url = base + "&entry.1515460522=" + transid;
-          return { href: url, label: "BATAL PAKAI" };
-        }
-        return { href: "", label: "" };
-      }
-
       $(document).ready(function () {
+        // parse CSV as arrays so we can index by column
         Papa.parse(csvUrl, {
           download: true,
           header: false,
@@ -298,7 +210,7 @@
             const all = results.data || [];
             if (all.length === 0) {
               $("#tableBody").html(
-                '<tr><td colspan="15" class="text-center">Tidak ada data</td></tr>'
+                '<tr><td colspan="13" class="text-center">Tidak ada data</td></tr>'
               );
               return;
             }
@@ -313,31 +225,31 @@
               responsive: true,
               pageLength: 15,
               order: [[1, "desc"]],
-              columnDefs: [
-                { targets: [10, 11, 12, 13], className: "text-center" },
-              ],
+              columnDefs: [{ targets: [10], className: "text-center" }],
             });
           },
           error: function (err) {
             console.error("PapaParse error", err);
             $("#tableBody").append(
-              '<tr><td colspan="15">Gagal memuat CSV</td></tr>'
+              '<tr><td colspan="13">Gagal memuat CSV</td></tr>'
             );
           },
         });
       });
 
+      // Build main table using dataRows (array-of-arrays)
       function buildTableFromRows(rows) {
         const $tbody = $("#tableBody");
         $tbody.empty();
         if (!rows || rows.length === 0) {
           $tbody.append(
-            '<tr><td colspan="15" class="text-center">Tidak ada data</td></tr>'
+            '<tr><td colspan="13" class="text-center">Tidak ada data</td></tr>'
           );
           return;
         }
 
         rows.forEach((r, idx) => {
+          // ini dibaca berdasarkan indeks kolom dari 0=A
           const transID = safe(col(r, 3)); // D
           const dateRaw = col(r, 1); // B
           const dateOrder = toISODateIfPossible(dateRaw);
@@ -349,96 +261,30 @@
           const noMK = safe(col(r, 9)); // J
           const noPakai = safe(col(r, 23)); // X
           const noInvoice = safe(col(r, 24)); // Y
+          const progress = safe(col(r, 38)); // AM
+          const rawLinkForm = col(r, 39); // AN (pake url ke gform)
 
-          const progressRaw = String(col(r, 40) || ""); // AO
-          const progressNorm = progressRaw.trim().toLowerCase();
-          const alasanUpdateRaw = String(col(r, 38) || ""); // AM
-          const alasanUpdateExists = alasanUpdateRaw.trim() !== "";
-
-          const rawLinkForm = col(r, 41); // AP
-          const rawLinkUpdate = col(r, 42); // AQ
-          const rawLinkBatal = col(r, 43); // AR
-
-          // RULES:
-          // - if progress contains "in process" -> hide AQ & AR
-          // - if alasan update exists -> hide AQ
-          // - if progress contains "cancel" -> hide AP, AQ, AR
-
-          const isInProcess = progressNorm.includes("in process");
-          const isCanceled = progressNorm.includes("cancel"); // covers cancel/canceled/cancelled
-          const hideUpdate = isInProcess || alasanUpdateExists || isCanceled;
-          const hideBatal = isInProcess || isCanceled;
-          const hideForm = isCanceled;
-
-          // Link Form: same as before but respect hideForm
-          let linkFormHref = "";
-          let linkFormLabel = "-";
-          if (!hideForm && rawLinkForm && String(rawLinkForm).trim() !== "") {
+          // link gform dinamis
+          let linkHref = "";
+          let linkLabel = "-";
+          if (rawLinkForm && String(rawLinkForm).trim() !== "") {
             const v = String(rawLinkForm).trim();
             if (
               v.toLowerCase().startsWith("http") ||
               v.indexOf("docs.google.com/forms") >= 0
             ) {
-              linkFormHref = v;
-              linkFormLabel = "Form";
+              linkHref = v;
+              linkLabel = "Form";
             } else {
+              // treat as label: try construct
               const built = buildFormUrlFromLabel(v, r);
               if (built) {
-                linkFormHref = built;
-                linkFormLabel = v;
-              } else linkFormLabel = v;
-            }
-          } else {
-            // hidden or empty → show dash
-            linkFormLabel = "-";
-          }
-
-          // Link Update: if hideUpdate -> don't show link
-          let linkUpdateHref = "";
-          let linkUpdateLabel = "-";
-          if (!hideUpdate) {
-            if (
-              rawLinkUpdate &&
-              String(rawLinkUpdate).trim() !== "" &&
-              String(rawLinkUpdate).trim().toLowerCase().startsWith("http")
-            ) {
-              linkUpdateHref = String(rawLinkUpdate).trim();
-              linkUpdateLabel = "Update";
-            } else {
-              const built = buildUpdateUrlFromRow(r);
-              if (built && built.href) {
-                linkUpdateHref = built.href;
-                linkUpdateLabel = built.label || "Update";
+                linkHref = built;
+                linkLabel = v;
               } else {
-                linkUpdateLabel = safe(rawLinkUpdate);
+                linkLabel = v;
               }
             }
-          } else {
-            linkUpdateLabel = "-";
-          }
-
-          // Link Batal: if hideBatal -> don't show link
-          let linkBatalHref = "";
-          let linkBatalLabel = "-";
-          if (!hideBatal) {
-            if (
-              rawLinkBatal &&
-              String(rawLinkBatal).trim() !== "" &&
-              String(rawLinkBatal).trim().toLowerCase().startsWith("http")
-            ) {
-              linkBatalHref = String(rawLinkBatal).trim();
-              linkBatalLabel = "Batal";
-            } else {
-              const built = buildBatalUrlFromRow(r);
-              if (built && built.href) {
-                linkBatalHref = built.href;
-                linkBatalLabel = built.label || "Batal";
-              } else {
-                linkBatalLabel = safe(rawLinkBatal);
-              }
-            }
-          } else {
-            linkBatalLabel = "-";
           }
 
           const $tr = $("<tr>");
@@ -454,44 +300,18 @@
           $tr.append($("<td>").text(noMK));
           $tr.append($("<td>").text(noPakai));
           $tr.append($("<td>").text(noInvoice));
-          $tr.append($("<td>").text(progressNorm ? safe(progressRaw) : "-"));
+          $tr.append($("<td>").text(progress));
 
-          if (linkFormHref) {
+          if (linkHref) {
             $tr.append(
               $("<td>").html(
                 `<a class="btn btn-sm btn-outline-primary" href="${mkHref(
-                  linkFormHref
-                )}" target="_blank">${linkFormLabel || "Form"}</a>`
+                  linkHref
+                )}" target="_blank">${linkLabel || "Form"}</a>`
               )
             );
           } else {
-            $tr.append(
-              $("<td>").text(linkFormLabel === "-" ? "-" : linkFormLabel)
-            );
-          }
-
-          if (linkUpdateHref) {
-            $tr.append(
-              $("<td>").html(
-                `<a class="btn btn-sm btn-outline-success" href="${mkHref(
-                  linkUpdateHref
-                )}" target="_blank">${linkUpdateLabel}</a>`
-              )
-            );
-          } else {
-            $tr.append($("<td>").text(linkUpdateLabel));
-          }
-
-          if (linkBatalHref) {
-            $tr.append(
-              $("<td>").html(
-                `<a class="btn btn-sm btn-outline-danger" href="${mkHref(
-                  linkBatalHref
-                )}" target="_blank">${linkBatalLabel}</a>`
-              )
-            );
-          } else {
-            $tr.append($("<td>").text(linkBatalLabel));
+            $tr.append($("<td>").text(linkLabel === "-" ? "-" : linkLabel));
           }
 
           const lihatBtn = $("<button>")
@@ -507,6 +327,7 @@
         });
       }
 
+      // show modal using row index in dataRows
       function showModalDetailByRowIndex(rowIndex) {
         const row = dataRows[rowIndex];
         if (!row) {
@@ -516,6 +337,7 @@
           return;
         }
 
+        // basic fields same as above
         const data = {
           transid: safe(col(row, 3)),
           date: safe(col(row, 1)),
@@ -525,32 +347,15 @@
           kodeLangganan: safe(col(row, 7)),
           noPinjam: safe(col(row, 8)),
           noMK: safe(col(row, 9)),
-          uploadPinjam: col(row, 22),
+          uploadPinjam: col(row, 22), // W
           noPakai: safe(col(row, 23)),
           noInvoice: safe(col(row, 24)),
-          uploadPakai: col(row, 37),
-          progress: safe(col(row, 40)),
-          rawLinkForm: col(row, 41),
-          rawAlasanUpdate: col(row, 38),
-          rawAlasanBatal: col(row, 39),
-          rawLinkUpdate: col(row, 42),
-          rawLinkBatal: col(row, 43),
+          uploadPakai: col(row, 37), // AL
+          progress: safe(col(row, 38)),
+          rawLinkForm: col(row, 39),
         };
 
-        // normalize checks (same as table)
-        const progressNorm = String(data.progress || "")
-          .trim()
-          .toLowerCase();
-        const isInProcess = progressNorm.includes("in process");
-        const isCanceled = progressNorm.includes("cancel");
-        const alasanUpdateExists =
-          String(data.rawAlasanUpdate || "").trim() !== "";
-
-        const hideUpdate = isInProcess || alasanUpdateExists || isCanceled;
-        const hideBatal = isInProcess || isCanceled;
-        const hideForm = isCanceled;
-
-        // Pinjam items
+        // Pinjam items by fixed column pairs (K/L, M/N, O/P, Q/R, S/T, U/V)
         const pinjamCols = [
           [10, 11],
           [12, 13],
@@ -560,17 +365,18 @@
           [20, 21],
         ];
         const pinjamItems = [];
-        pinjamCols.forEach((pair) => {
+        pinjamCols.forEach((pair, i) => {
           const kode = col(row, pair[0]);
           const qty = col(row, pair[1]);
           if (
             (kode && String(kode).trim() !== "") ||
             (qty && String(qty).trim() !== "")
-          )
+          ) {
             pinjamItems.push({ kode: safe(kode), qty: safe(qty) });
+          }
         });
 
-        // Pakai items
+        // Pakai items by fixed column pairs (Z/AA, AB/AC, AD/AE, AF/AG, AH/AI, AJ/AK)
         const pakaiCols = [
           [25, 26],
           [27, 28],
@@ -580,83 +386,37 @@
           [35, 36],
         ];
         const pakaiItems = [];
-        pakaiCols.forEach((pair) => {
+        pakaiCols.forEach((pair, i) => {
           const kode = col(row, pair[0]);
           const qty = col(row, pair[1]);
           if (
             (kode && String(kode).trim() !== "") ||
             (qty && String(qty).trim() !== "")
-          )
+          ) {
             pakaiItems.push({ kode: safe(kode), qty: safe(qty) });
+          }
         });
 
-        // Link Form (respect hideForm)
-        let linkFormHref = "";
-        let linkFormLabel = "-";
-        if (
-          !hideForm &&
-          data.rawLinkForm &&
-          String(data.rawLinkForm).trim() !== ""
-        ) {
+        // Link Form logic (same as table)
+        let linkHref = "";
+        let linkLabel = "-";
+        if (data.rawLinkForm && String(data.rawLinkForm).trim() !== "") {
           const v = String(data.rawLinkForm).trim();
           if (
             v.toLowerCase().startsWith("http") ||
             v.indexOf("docs.google.com/forms") >= 0
           ) {
-            linkFormHref = v;
-            linkFormLabel = "Form";
+            linkHref = v;
+            linkLabel = "Form";
           } else {
             const built = buildFormUrlFromLabel(v, row);
             if (built) {
-              linkFormHref = built;
-              linkFormLabel = v;
-            } else linkFormLabel = v;
+              linkHref = built;
+              linkLabel = v;
+            } else {
+              linkLabel = v;
+            }
           }
-        } else {
-          linkFormLabel = "-";
-        }
-
-        // Link Update & Batal (respect hide flags)
-        let linkUpdateHref = "";
-        let linkUpdateLabel = "-";
-        if (!hideUpdate) {
-          if (
-            data.rawLinkUpdate &&
-            String(data.rawLinkUpdate).trim() !== "" &&
-            String(data.rawLinkUpdate).trim().toLowerCase().startsWith("http")
-          ) {
-            linkUpdateHref = String(data.rawLinkUpdate).trim();
-            linkUpdateLabel = "Update";
-          } else {
-            const built = buildUpdateUrlFromRow(row);
-            if (built && built.href) {
-              linkUpdateHref = built.href;
-              linkUpdateLabel = built.label || "Update";
-            } else linkUpdateLabel = safe(data.rawLinkUpdate);
-          }
-        } else {
-          linkUpdateLabel = "-";
-        }
-
-        let linkBatalHref = "";
-        let linkBatalLabel = "-";
-        if (!hideBatal) {
-          if (
-            data.rawLinkBatal &&
-            String(data.rawLinkBatal).trim() !== "" &&
-            String(data.rawLinkBatal).trim().toLowerCase().startsWith("http")
-          ) {
-            linkBatalHref = String(data.rawLinkBatal).trim();
-            linkBatalLabel = "Batal";
-          } else {
-            const built = buildBatalUrlFromRow(row);
-            if (built && built.href) {
-              linkBatalHref = built.href;
-              linkBatalLabel = built.label || "Batal";
-            } else linkBatalLabel = safe(data.rawLinkBatal);
-          }
-        } else {
-          linkBatalLabel = "-";
         }
 
         // Build modal HTML
@@ -696,47 +456,21 @@
         html += cardCol("Progress", data.progress);
         html += cardCol(
           "Link Form",
-          linkFormHref
-            ? `<a href="${mkHref(linkFormHref)}" target="_blank">${safe(
-                linkFormLabel
+          linkHref
+            ? `<a href="${mkHref(linkHref)}" target="_blank">${safe(
+                linkLabel
               )}</a>`
-            : safe(linkFormLabel)
-        );
-        html += "</div>";
-
-        // Alasan Update / Alasan Batal
-        html += '<div class="row mb-2">';
-        html += cardCol("Alasan Update", safe(data.rawAlasanUpdate), 6);
-        html += cardCol("Alasan Batal", safe(data.rawAlasanBatal), 6);
-        html += "</div>";
-
-        // Link Update & Batal (detail)
-        html += '<div class="row mb-2">';
-        html += cardCol(
-          "Link Update",
-          linkUpdateHref
-            ? `<a href="${mkHref(linkUpdateHref)}" target="_blank">${safe(
-                linkUpdateLabel
-              )}</a>`
-            : safe(linkUpdateLabel)
-        );
-        html += cardCol(
-          "Link Batal",
-          linkBatalHref
-            ? `<a href="${mkHref(linkBatalHref)}" target="_blank">${safe(
-                linkBatalLabel
-              )}</a>`
-            : safe(linkBatalLabel)
+            : safe(linkLabel)
         );
         html += "</div>";
 
         // Pinjam table
         html +=
           '<div class="row mt-3"><div class="col-12"><h6>Detail Barang — Pinjam</h6>';
-        if (pinjamItems.length === 0)
+        if (pinjamItems.length === 0) {
           html +=
             '<div class="card"><div class="card-body">Tidak ada item pinjam</div></div>';
-        else {
+        } else {
           html +=
             '<div class="table-responsive"><table class="table table-sm table-bordered"><thead class="table-light"><tr><th>#</th><th>Kode Barang</th><th>QTY</th></tr></thead><tbody>';
           pinjamItems.forEach((it, i) => {
@@ -751,10 +485,10 @@
         // Pakai table
         html +=
           '<div class="row mt-3"><div class="col-12"><h6>Detail Barang — Pakai</h6>';
-        if (pakaiItems.length === 0)
+        if (pakaiItems.length === 0) {
           html +=
             '<div class="card"><div class="card-body">Tidak ada item pakai</div></div>';
-        else {
+        } else {
           html +=
             '<div class="table-responsive"><table class="table table-sm table-bordered"><thead class="table-light"><tr><th>#</th><th>Kode Barang</th><th>QTY</th></tr></thead><tbody>';
           pakaiItems.forEach((it, i) => {
