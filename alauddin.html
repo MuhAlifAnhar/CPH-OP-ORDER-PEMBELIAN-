@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>OP Dashboard (Order Pembelian) — ALD</title>
+    <title>OP Dashboard (Order Pembelian)</title>
 
     <!-- Bootstrap & jQuery & DataTables & PapaParse -->
     <link
@@ -78,6 +78,8 @@
               <th>No Invoice</th>
               <th>Progress</th>
               <th>Link Form</th>
+              <th>Link Update</th>
+              <th>Link Batal</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -110,11 +112,13 @@
 
     <script>
       /*
-  CSV parsed as arrays (header:false). Column index mapping (zero-based):
+  Column mapping (zero-based):
     A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7, I=8, J=9,
     K=10, L=11, M=12, N=13, O=14, P=15, Q=16, R=17, S=18, T=19,
     U=20, V=21, W=22, X=23, Y=24, Z=25, AA=26, AB=27, AC=28, AD=29,
-    AE=30, AF=31, AG=32, AH=33, AI=34, AJ=35, AK=36, AL=37, AM=38, AN=39
+    AE=30, AF=31, AG=32, AH=33, AI=34, AJ=35, AK=36, AL=37,
+    AM=38 (Alasan Update), AN=39 (Alasan Batal),
+    AO=40 (Progress), AP=41 (Link Form), AQ=42 (Link Update), AR=43 (Link Batal)
 */
 
       const csvUrl =
@@ -140,6 +144,7 @@
         return d.toISOString();
       }
 
+      // form templates used earlier (kept for Link Form)
       const FORM_TEMPLATES = {
         COMPLETE_PINJAM: {
           base: "https://docs.google.com/forms/d/e/1FAIpQLSdVsv0JTkIqsfVkhlkw23RY1WjUqnp19s9drnybDODO0ZbQIg/viewform?usp=pp_url",
@@ -164,6 +169,7 @@
         return idx < 0 || idx >= row.length ? "" : row[idx];
       }
 
+      // Build Link Form from label (same as before)
       function buildFormUrlFromLabel(label, row) {
         if (!label) return "";
         const L = String(label).toUpperCase().trim();
@@ -198,6 +204,104 @@
         return "";
       }
 
+      // ----------------------------
+      // Build Update URL (AQ) from row (mimic your ARRAYFORMULA building)
+      // ----------------------------
+      function buildUpdateUrlFromRow(row) {
+        const typeRaw = String(col(row, 6) || "").trim(); // G
+        const type = typeRaw.replace(/\u00A0/g, "").toLowerCase();
+        const transid = encodeURIComponent(String(col(row, 3) || "").trim()); // D
+
+        // Form base (your formula used same form id for both pinjam/pakai)
+        const base =
+          "https://docs.google.com/forms/d/e/1FAIpQLSc_tZolSs9jjLNppQ6RwUQmBVFl-xt3el7JM3V7DXcqIYseKw/viewform?usp=pp_url";
+
+        if (type === "pinjam") {
+          // Mapping K..V => cols 10..21
+          const map = {
+            "entry.1857583927": col(row, 10), // K
+            "entry.51449392": col(row, 11), // L
+            "entry.725536808": col(row, 12), // M
+            "entry.1585152426": col(row, 13), // N
+            "entry.1247191112": col(row, 14), // O
+            "entry.521804809": col(row, 15), // P
+            "entry.1103266424": col(row, 16), // Q
+            "entry.1262921988": col(row, 17), // R
+            "entry.1605010623": col(row, 18), // S
+            "entry.1461492477": col(row, 19), // T
+            "entry.1598462406": col(row, 20), // U
+            "entry.2061006561": col(row, 21), // V
+          };
+          let url = base + "&entry.331942194=" + transid;
+          for (const key in map) {
+            const v = (map[key] || "").trim();
+            if (v !== "") url += `&${key}=${encodeURIComponent(v)}`;
+            else url += `&${key}=`;
+          }
+          return { href: url, label: "UPDATE PINJAM" };
+        }
+
+        if (type === "pakai") {
+          // Mapping Z..AK => cols 25..36
+          const map = {
+            "entry.1857583927": col(row, 25), // Z
+            "entry.51449392": col(row, 26), // AA
+            "entry.725536808": col(row, 27), // AB
+            "entry.1585152426": col(row, 28), // AC
+            "entry.1247191112": col(row, 29), // AD
+            "entry.521804809": col(row, 30), // AE
+            "entry.1103266424": col(row, 31), // AF
+            "entry.1262921988": col(row, 32), // AG
+            "entry.1605010623": col(row, 33), // AH
+            "entry.1461492477": col(row, 34), // AI
+            "entry.1598462406": col(row, 35), // AJ
+            "entry.2061006561": col(row, 36), // AK
+          };
+          let url = base + "&entry.331942194=" + transid;
+          for (const key in map) {
+            const v = (map[key] || "").trim();
+            if (v !== "") url += `&${key}=${encodeURIComponent(v)}`;
+            else url += `&${key}=`;
+          }
+          return { href: url, label: "UPDATE PAKAI" };
+        }
+
+        return { href: "", label: "" };
+      }
+
+      // ----------------------------
+      // Build Batal URL (AR) from row
+      // ----------------------------
+      function buildBatalUrlFromRow(row) {
+        const typeRaw = String(col(row, 6) || "").trim(); // G
+        const type = typeRaw.replace(/\u00A0/g, "").toLowerCase();
+        const transid = encodeURIComponent(String(col(row, 3) || "").trim()); // D
+
+        const base =
+          "https://docs.google.com/forms/d/e/1FAIpQLScgU2-saF_fxbM1NeH-z_lniidrP3G250BNIR3Kg5kupVzT8Q/viewform?usp=pp_url";
+
+        if (type === "pinjam") {
+          const url = base + "&entry.1515460522=" + transid;
+          return { href: url, label: "BATAL PINJAM" };
+        }
+        if (type === "pakai") {
+          const url = base + "&entry.1515460522=" + transid;
+          return { href: url, label: "BATAL PAKAI" };
+        }
+        return { href: "", label: "" };
+      }
+
+      // helper to create an "empty" row that has the exact number of <td> as headers
+      function emptyRowCells(message = "Tidak ada data", cols = 15) {
+        let tds = "";
+        for (let i = 0; i < cols; i++) {
+          // put message in first cell, others put '-'
+          if (i === 0) tds += `<td class="text-center">${message}</td>`;
+          else tds += "<td>-</td>";
+        }
+        return `<tr>${tds}</tr>`;
+      }
+
       $(document).ready(function () {
         Papa.parse(csvUrl, {
           download: true,
@@ -206,9 +310,20 @@
           complete: function (results) {
             const all = results.data || [];
             if (all.length === 0) {
-              $("#tableBody").html(
-                '<tr><td colspan="13" class="text-center">Tidak ada data</td></tr>'
-              );
+              // Instead of colspan, produce 15 <td>
+              $("#tableBody").html(emptyRowCells("Tidak ada data", 15));
+              // init DataTable after tableBody populated
+              if ($.fn.DataTable.isDataTable("#opTable")) {
+                $("#opTable").DataTable().destroy();
+              }
+              $("#opTable").DataTable({
+                responsive: true,
+                pageLength: 15,
+                order: [[1, "desc"]],
+                columnDefs: [
+                  { targets: [10, 11, 12, 13], className: "text-center" },
+                ],
+              });
               return;
             }
             headerRow = all[0] || [];
@@ -222,39 +337,53 @@
               responsive: true,
               pageLength: 15,
               order: [[1, "desc"]],
-              columnDefs: [{ targets: [10], className: "text-center" }],
+              columnDefs: [
+                { targets: [10, 11, 12, 13], className: "text-center" },
+              ],
             });
           },
           error: function (err) {
             console.error("PapaParse error", err);
-            $("#tableBody").append(
-              '<tr><td colspan="13">Gagal memuat CSV</td></tr>'
-            );
+            // show empty row with message
+            $("#tableBody").html(emptyRowCells("Gagal memuat CSV", 15));
+            if ($.fn.DataTable.isDataTable("#opTable")) {
+              $("#opTable").DataTable().destroy();
+            }
+            $("#opTable").DataTable({
+              responsive: true,
+              pageLength: 15,
+              order: [[1, "desc"]],
+              columnDefs: [
+                { targets: [10, 11, 12, 13], className: "text-center" },
+              ],
+            });
           },
         });
       });
 
-      // Only show rows where Cabang (col F -> index 5) equals 'ALD' (case-insensitive)
       function buildTableFromRows(rows) {
         const $tbody = $("#tableBody");
         $tbody.empty();
         if (!rows || rows.length === 0) {
-          $tbody.append(
-            '<tr><td colspan="13" class="text-center">Tidak ada data</td></tr>'
-          );
+          $tbody.append(emptyRowCells("Tidak ada data", 15));
           return;
         }
 
-        // iterate with for-loop so we can continue when cabang != ALD
-        let visibleCount = 0;
-        for (let idx = 0; idx < rows.length; idx++) {
-          const r = rows[idx];
+        // ---- FILTER: hanya tampilkan cabang ALD ----
+        const filtered = rows.filter((r) => {
           const cabangRaw = String(col(r, 5) || "")
             .trim()
-            .toUpperCase();
-          if (cabangRaw !== "ALD") continue; // <-- filter here: only ALD
+            .toLowerCase();
+          return cabangRaw === "ald";
+        });
 
-          // read fields by index
+        if (filtered.length === 0) {
+          $tbody.append(emptyRowCells("Tidak ada data (ALD)", 15));
+          return;
+        }
+        // -------------------------------------------
+
+        filtered.forEach((r, idx) => {
           const transID = safe(col(r, 3)); // D
           const dateRaw = col(r, 1); // B
           const dateOrder = toISODateIfPossible(dateRaw);
@@ -266,29 +395,96 @@
           const noMK = safe(col(r, 9)); // J
           const noPakai = safe(col(r, 23)); // X
           const noInvoice = safe(col(r, 24)); // Y
-          const progress = safe(col(r, 38)); // AM
-          const rawLinkForm = col(r, 39); // AN
 
-          // determine Link Form href/label
-          let linkHref = "";
-          let linkLabel = "-";
-          if (rawLinkForm && String(rawLinkForm).trim() !== "") {
+          const progressRaw = String(col(r, 40) || ""); // AO
+          const progressNorm = progressRaw.trim().toLowerCase();
+          const alasanUpdateRaw = String(col(r, 38) || ""); // AM
+          const alasanUpdateExists = alasanUpdateRaw.trim() !== "";
+
+          const rawLinkForm = col(r, 41); // AP
+          const rawLinkUpdate = col(r, 42); // AQ
+          const rawLinkBatal = col(r, 43); // AR
+
+          // RULES:
+          // - if progress contains "in process" -> hide AQ & AR
+          // - if alasan update exists -> hide AQ
+          // - if progress contains "cancel" -> hide AP, AQ, AR
+
+          const isInProcess = progressNorm.includes("in process");
+          const isCanceled = progressNorm.includes("cancel"); // covers cancel/canceled/cancelled
+          const hideUpdate = isInProcess || alasanUpdateExists || isCanceled;
+          const hideBatal = isInProcess || isCanceled;
+          const hideForm = isCanceled;
+
+          // Link Form: same as before but respect hideForm
+          let linkFormHref = "";
+          let linkFormLabel = "-";
+          if (!hideForm && rawLinkForm && String(rawLinkForm).trim() !== "") {
             const v = String(rawLinkForm).trim();
             if (
               v.toLowerCase().startsWith("http") ||
               v.indexOf("docs.google.com/forms") >= 0
             ) {
-              linkHref = v;
-              linkLabel = "Form";
+              linkFormHref = v;
+              linkFormLabel = "Form";
             } else {
               const built = buildFormUrlFromLabel(v, r);
               if (built) {
-                linkHref = built;
-                linkLabel = v;
+                linkFormHref = built;
+                linkFormLabel = v;
+              } else linkFormLabel = v;
+            }
+          } else {
+            // hidden or empty → show dash
+            linkFormLabel = "-";
+          }
+
+          // Link Update: if hideUpdate -> don't show link
+          let linkUpdateHref = "";
+          let linkUpdateLabel = "-";
+          if (!hideUpdate) {
+            if (
+              rawLinkUpdate &&
+              String(rawLinkUpdate).trim() !== "" &&
+              String(rawLinkUpdate).trim().toLowerCase().startsWith("http")
+            ) {
+              linkUpdateHref = String(rawLinkUpdate).trim();
+              linkUpdateLabel = "Update";
+            } else {
+              const built = buildUpdateUrlFromRow(r);
+              if (built && built.href) {
+                linkUpdateHref = built.href;
+                linkUpdateLabel = built.label || "Update";
               } else {
-                linkLabel = v;
+                linkUpdateLabel = safe(rawLinkUpdate);
               }
             }
+          } else {
+            linkUpdateLabel = "-";
+          }
+
+          // Link Batal: if hideBatal -> don't show link
+          let linkBatalHref = "";
+          let linkBatalLabel = "-";
+          if (!hideBatal) {
+            if (
+              rawLinkBatal &&
+              String(rawLinkBatal).trim() !== "" &&
+              String(rawLinkBatal).trim().toLowerCase().startsWith("http")
+            ) {
+              linkBatalHref = String(rawLinkBatal).trim();
+              linkBatalLabel = "Batal";
+            } else {
+              const built = buildBatalUrlFromRow(r);
+              if (built && built.href) {
+                linkBatalHref = built.href;
+                linkBatalLabel = built.label || "Batal";
+              } else {
+                linkBatalLabel = safe(rawLinkBatal);
+              }
+            }
+          } else {
+            linkBatalLabel = "-";
           }
 
           const $tr = $("<tr>");
@@ -304,18 +500,44 @@
           $tr.append($("<td>").text(noMK));
           $tr.append($("<td>").text(noPakai));
           $tr.append($("<td>").text(noInvoice));
-          $tr.append($("<td>").text(progress));
+          $tr.append($("<td>").text(progressNorm ? safe(progressRaw) : "-"));
 
-          if (linkHref) {
+          if (linkFormHref) {
             $tr.append(
               $("<td>").html(
                 `<a class="btn btn-sm btn-outline-primary" href="${mkHref(
-                  linkHref
-                )}" target="_blank">${linkLabel || "Form"}</a>`
+                  linkFormHref
+                )}" target="_blank">${linkFormLabel || "Form"}</a>`
               )
             );
           } else {
-            $tr.append($("<td>").text(linkLabel === "-" ? "-" : linkLabel));
+            $tr.append(
+              $("<td>").text(linkFormLabel === "-" ? "-" : linkFormLabel)
+            );
+          }
+
+          if (linkUpdateHref) {
+            $tr.append(
+              $("<td>").html(
+                `<a class="btn btn-sm btn-outline-success" href="${mkHref(
+                  linkUpdateHref
+                )}" target="_blank">${linkUpdateLabel}</a>`
+              )
+            );
+          } else {
+            $tr.append($("<td>").text(linkUpdateLabel));
+          }
+
+          if (linkBatalHref) {
+            $tr.append(
+              $("<td>").html(
+                `<a class="btn btn-sm btn-outline-danger" href="${mkHref(
+                  linkBatalHref
+                )}" target="_blank">${linkBatalLabel}</a>`
+              )
+            );
+          } else {
+            $tr.append($("<td>").text(linkBatalLabel));
           }
 
           const lihatBtn = $("<button>")
@@ -328,17 +550,9 @@
           $tr.append($("<td>").append(lihatBtn));
 
           $tbody.append($tr);
-          visibleCount++;
-        }
-
-        if (visibleCount === 0) {
-          $tbody.append(
-            '<tr><td colspan="13" class="text-center">Tidak ada data untuk Cabang ALD</td></tr>'
-          );
-        }
+        });
       }
 
-      // show modal using row index in dataRows
       function showModalDetailByRowIndex(rowIndex) {
         const row = dataRows[rowIndex];
         if (!row) {
@@ -357,14 +571,32 @@
           kodeLangganan: safe(col(row, 7)),
           noPinjam: safe(col(row, 8)),
           noMK: safe(col(row, 9)),
-          uploadPinjam: col(row, 22), // W
+          uploadPinjam: col(row, 22),
           noPakai: safe(col(row, 23)),
           noInvoice: safe(col(row, 24)),
-          uploadPakai: col(row, 37), // AL
-          progress: safe(col(row, 38)),
-          rawLinkForm: col(row, 39),
+          uploadPakai: col(row, 37),
+          progress: safe(col(row, 40)),
+          rawLinkForm: col(row, 41),
+          rawAlasanUpdate: col(row, 38),
+          rawAlasanBatal: col(row, 39),
+          rawLinkUpdate: col(row, 42),
+          rawLinkBatal: col(row, 43),
         };
 
+        // normalize checks (same as table)
+        const progressNorm = String(data.progress || "")
+          .trim()
+          .toLowerCase();
+        const isInProcess = progressNorm.includes("in process");
+        const isCanceled = progressNorm.includes("cancel");
+        const alasanUpdateExists =
+          String(data.rawAlasanUpdate || "").trim() !== "";
+
+        const hideUpdate = isInProcess || alasanUpdateExists || isCanceled;
+        const hideBatal = isInProcess || isCanceled;
+        const hideForm = isCanceled;
+
+        // Pinjam items
         const pinjamCols = [
           [10, 11],
           [12, 13],
@@ -380,11 +612,11 @@
           if (
             (kode && String(kode).trim() !== "") ||
             (qty && String(qty).trim() !== "")
-          ) {
+          )
             pinjamItems.push({ kode: safe(kode), qty: safe(qty) });
-          }
         });
 
+        // Pakai items
         const pakaiCols = [
           [25, 26],
           [27, 28],
@@ -400,32 +632,80 @@
           if (
             (kode && String(kode).trim() !== "") ||
             (qty && String(qty).trim() !== "")
-          ) {
+          )
             pakaiItems.push({ kode: safe(kode), qty: safe(qty) });
-          }
         });
 
-        let linkHref = "";
-        let linkLabel = "-";
-        if (data.rawLinkForm && String(data.rawLinkForm).trim() !== "") {
+        // Link Form (respect hideForm)
+        let linkFormHref = "";
+        let linkFormLabel = "-";
+        if (
+          !hideForm &&
+          data.rawLinkForm &&
+          String(data.rawLinkForm).trim() !== ""
+        ) {
           const v = String(data.rawLinkForm).trim();
           if (
             v.toLowerCase().startsWith("http") ||
             v.indexOf("docs.google.com/forms") >= 0
           ) {
-            linkHref = v;
-            linkLabel = "Form";
+            linkFormHref = v;
+            linkFormLabel = "Form";
           } else {
             const built = buildFormUrlFromLabel(v, row);
             if (built) {
-              linkHref = built;
-              linkLabel = v;
-            } else {
-              linkLabel = v;
-            }
+              linkFormHref = built;
+              linkFormLabel = v;
+            } else linkFormLabel = v;
           }
+        } else {
+          linkFormLabel = "-";
         }
 
+        // Link Update & Batal (respect hide flags)
+        let linkUpdateHref = "";
+        let linkUpdateLabel = "-";
+        if (!hideUpdate) {
+          if (
+            data.rawLinkUpdate &&
+            String(data.rawLinkUpdate).trim() !== "" &&
+            String(data.rawLinkUpdate).trim().toLowerCase().startsWith("http")
+          ) {
+            linkUpdateHref = String(data.rawLinkUpdate).trim();
+            linkUpdateLabel = "Update";
+          } else {
+            const built = buildUpdateUrlFromRow(row);
+            if (built && built.href) {
+              linkUpdateHref = built.href;
+              linkUpdateLabel = built.label || "Update";
+            } else linkUpdateLabel = safe(data.rawLinkUpdate);
+          }
+        } else {
+          linkUpdateLabel = "-";
+        }
+
+        let linkBatalHref = "";
+        let linkBatalLabel = "-";
+        if (!hideBatal) {
+          if (
+            data.rawLinkBatal &&
+            String(data.rawLinkBatal).trim() !== "" &&
+            String(data.rawLinkBatal).trim().toLowerCase().startsWith("http")
+          ) {
+            linkBatalHref = String(data.rawLinkBatal).trim();
+            linkBatalLabel = "Batal";
+          } else {
+            const built = buildBatalUrlFromRow(row);
+            if (built && built.href) {
+              linkBatalHref = built.href;
+              linkBatalLabel = built.label || "Batal";
+            } else linkBatalLabel = safe(data.rawLinkBatal);
+          }
+        } else {
+          linkBatalLabel = "-";
+        }
+
+        // Build modal HTML
         let html = '<div class="container-fluid">';
         html += '<div class="row mb-2">';
         html += cardCol("TransID", data.transid);
@@ -462,20 +742,47 @@
         html += cardCol("Progress", data.progress);
         html += cardCol(
           "Link Form",
-          linkHref
-            ? `<a href="${mkHref(linkHref)}" target="_blank">${safe(
-                linkLabel
+          linkFormHref
+            ? `<a href="${mkHref(linkFormHref)}" target="_blank">${safe(
+                linkFormLabel
               )}</a>`
-            : safe(linkLabel)
+            : safe(linkFormLabel)
         );
         html += "</div>";
 
+        // Alasan Update / Alasan Batal
+        html += '<div class="row mb-2">';
+        html += cardCol("Alasan Update", safe(data.rawAlasanUpdate), 6);
+        html += cardCol("Alasan Batal", safe(data.rawAlasanBatal), 6);
+        html += "</div>";
+
+        // Link Update & Batal (detail)
+        html += '<div class="row mb-2">';
+        html += cardCol(
+          "Link Update",
+          linkUpdateHref
+            ? `<a href="${mkHref(linkUpdateHref)}" target="_blank">${safe(
+                linkUpdateLabel
+              )}</a>`
+            : safe(linkUpdateLabel)
+        );
+        html += cardCol(
+          "Link Batal",
+          linkBatalHref
+            ? `<a href="${mkHref(linkBatalHref)}" target="_blank">${safe(
+                linkBatalLabel
+              )}</a>`
+            : safe(linkBatalLabel)
+        );
+        html += "</div>";
+
+        // Pinjam table
         html +=
           '<div class="row mt-3"><div class="col-12"><h6>Detail Barang — Pinjam</h6>';
-        if (pinjamItems.length === 0) {
+        if (pinjamItems.length === 0)
           html +=
             '<div class="card"><div class="card-body">Tidak ada item pinjam</div></div>';
-        } else {
+        else {
           html +=
             '<div class="table-responsive"><table class="table table-sm table-bordered"><thead class="table-light"><tr><th>#</th><th>Kode Barang</th><th>QTY</th></tr></thead><tbody>';
           pinjamItems.forEach((it, i) => {
@@ -487,12 +794,13 @@
         }
         html += "</div></div>";
 
+        // Pakai table
         html +=
           '<div class="row mt-3"><div class="col-12"><h6>Detail Barang — Pakai</h6>';
-        if (pakaiItems.length === 0) {
+        if (pakaiItems.length === 0)
           html +=
             '<div class="card"><div class="card-body">Tidak ada item pakai</div></div>';
-        } else {
+        else {
           html +=
             '<div class="table-responsive"><table class="table table-sm table-bordered"><thead class="table-light"><tr><th>#</th><th>Kode Barang</th><th>QTY</th></tr></thead><tbody>';
           pakaiItems.forEach((it, i) => {
@@ -504,7 +812,7 @@
         }
         html += "</div></div>";
 
-        html += "</div>";
+        html += "</div>"; // container-fluid end
 
         $("#modalBodyContent").html(html);
         const m = new bootstrap.Modal(document.getElementById("detailModal"));
