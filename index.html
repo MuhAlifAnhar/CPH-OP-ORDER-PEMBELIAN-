@@ -366,8 +366,10 @@
 
           const isInProcess = progressNorm.includes("in process");
           const isCanceled = progressNorm.includes("cancel"); // covers cancel/canceled/cancelled
-          const hideUpdate = isInProcess || alasanUpdateExists || isCanceled;
-          const hideBatal = isInProcess || isCanceled;
+          const isCompleted = progressNorm.includes("complete");
+          const hideUpdate =
+            isInProcess || alasanUpdateExists || isCanceled || isCompleted;
+          const hideBatal = isInProcess || isCanceled || isCompleted;
           const hideForm = isCanceled;
 
           // Link Form: same as before but respect hideForm
@@ -543,11 +545,13 @@
           .toLowerCase();
         const isInProcess = progressNorm.includes("in process");
         const isCanceled = progressNorm.includes("cancel");
+        const isCompleted = progressNorm.includes("complete");
         const alasanUpdateExists =
           String(data.rawAlasanUpdate || "").trim() !== "";
 
-        const hideUpdate = isInProcess || alasanUpdateExists || isCanceled;
-        const hideBatal = isInProcess || isCanceled;
+        const hideUpdate =
+          isInProcess || alasanUpdateExists || isCanceled || isCompleted;
+        const hideBatal = isInProcess || isCanceled || isCompleted;
         const hideForm = isCanceled;
 
         // Pinjam items
