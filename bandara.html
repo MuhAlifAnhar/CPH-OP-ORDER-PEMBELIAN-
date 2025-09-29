@@ -369,21 +369,22 @@
           return;
         }
 
-        // ---- FILTER: hanya tampilkan cabang BDR ----
-        const filtered = rows.filter((r) => {
-          const cabangRaw = String(col(r, 5) || "")
-            .trim()
-            .toLowerCase();
-          return cabangRaw === "bdr";
-        });
+        // buat array berisi objek { row, originalIndex } lalu filter berdasarkan Cabang = 'bdr'
+        const filtered = rows
+          .map((r, originalIndex) => ({ r, originalIndex }))
+          .filter(({ r }) => {
+            const cabangRaw = String(col(r, 5) || "")
+              .trim()
+              .toLowerCase();
+            return cabangRaw === "bdr";
+          });
 
         if (filtered.length === 0) {
           $tbody.append(emptyRowCells("Tidak ada data (BDR)", 15));
           return;
         }
-        // -------------------------------------------
 
-        filtered.forEach((r, idx) => {
+        filtered.forEach(({ r, originalIndex }) => {
           const transID = safe(col(r, 3)); // D
           const dateRaw = col(r, 1); // B
           const dateOrder = toISODateIfPossible(dateRaw);
@@ -405,18 +406,13 @@
           const rawLinkUpdate = col(r, 42); // AQ
           const rawLinkBatal = col(r, 43); // AR
 
-          // RULES:
-          // - if progress contains "in process" -> hide AQ & AR
-          // - if alasan update exists -> hide AQ
-          // - if progress contains "cancel" -> hide AP, AQ, AR
-
           const isInProcess = progressNorm.includes("in process");
-          const isCanceled = progressNorm.includes("cancel"); // covers cancel/canceled/cancelled
+          const isCanceled = progressNorm.includes("cancel");
           const hideUpdate = isInProcess || alasanUpdateExists || isCanceled;
           const hideBatal = isInProcess || isCanceled;
           const hideForm = isCanceled;
 
-          // Link Form: same as before but respect hideForm
+          // Link Form
           let linkFormHref = "";
           let linkFormLabel = "-";
           if (!hideForm && rawLinkForm && String(rawLinkForm).trim() !== "") {
@@ -435,11 +431,10 @@
               } else linkFormLabel = v;
             }
           } else {
-            // hidden or empty → show dash
             linkFormLabel = "-";
           }
 
-          // Link Update: if hideUpdate -> don't show link
+          // Link Update
           let linkUpdateHref = "";
           let linkUpdateLabel = "-";
           if (!hideUpdate) {
@@ -463,7 +458,7 @@
             linkUpdateLabel = "-";
           }
 
-          // Link Batal: if hideBatal -> don't show link
+          // Link Batal
           let linkBatalHref = "";
           let linkBatalLabel = "-";
           if (!hideBatal) {
@@ -542,7 +537,7 @@
 
           const lihatBtn = $("<button>")
             .addClass("btn btn-sm btn-primary")
-            .attr("data-index", idx)
+            .attr("data-index", originalIndex) // <-- pakai originalIndex (index di dataRows)
             .text("Lihat")
             .on("click", function () {
               showModalDetailByRowIndex($(this).data("index"));
