@@ -75,6 +75,7 @@
               <th>No Pakai</th>
               <th>No Invoice</th>
               <th>Progress</th>
+              <th>Booking BMP</th>
               <th>Link Form</th>
               <th>Link Update</th>
               <th>Link Batal</th>
@@ -118,6 +119,10 @@
     AM=38 (Alasan Update), AN=39 (Alasan Batal),
     AO=40 (Progress), AP=41 (Link Form), AQ=42 (Link Update), AR=43 (Link Batal)
 */
+      const BOOKING_BMP_BASE_URL =
+        "https://docs.google.com/forms/d/e/1FAIpQLSeqebnWjf5-zC5KR9DRFA0uZyz3b8_MT4NGHc4ECl_1w6_2aw/viewform?usp=pp_url";
+
+      const BOOKING_BMP_ENTRY_CABANG = "entry.316462213";
 
       const csvUrl =
         "https://docs.google.com/spreadsheets/d/e/2PACX-1vTgFVU5uh5mKvnk1z7_tvmjWV1rV4QURPNQWySOvFt5HL-Hdo2D-2kA8uN3NzxAe7WQBB2oRPwr7n-z/pub?gid=12863231&single=true&output=csv";
@@ -314,7 +319,7 @@
               pageLength: 15,
               order: [[1, "desc"]],
               columnDefs: [
-                { targets: [10, 11, 12, 13], className: "text-center" },
+                { targets: [10, 11, 12, 13, 14], className: "text-center" },
               ],
             });
           },
@@ -457,6 +462,35 @@
           $tr.append($("<td>").text(noPakai));
           $tr.append($("<td>").text(noInvoice));
           $tr.append($("<td>").text(progressNorm ? safe(progressRaw) : "-"));
+
+          // ===== Booking BMP =====
+          let bookingBmpCell = "-";
+
+          // kondisi progress
+          const hideBookingBmpByProgress =
+            isInProcess || isCompleted || isCanceled;
+
+          // cek No Pinjam asli
+          const rawNoPinjam = String(col(r, 8) || "").trim();
+          const hasNoPinjam = rawNoPinjam !== "" && rawNoPinjam !== "-";
+
+          // ambil Cabang (kolom F / index 5)
+          const rawCabang = String(col(r, 5) || "").trim();
+
+          if (!hideBookingBmpByProgress && hasNoPinjam && rawCabang !== "") {
+            const bookingBmpUrl =
+              `${BOOKING_BMP_BASE_URL}&${BOOKING_BMP_ENTRY_CABANG}=` +
+              encodeURIComponent(rawCabang);
+
+            bookingBmpCell = `
+    <a class="btn btn-sm btn-outline-info"
+       href="${bookingBmpUrl}"
+       target="_blank">
+       Booking BMP
+    </a>`;
+          }
+
+          $tr.append($("<td>").html(bookingBmpCell));
 
           if (linkFormHref) {
             $tr.append(
